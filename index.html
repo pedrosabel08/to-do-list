@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List with Firebase and FullCalendar</title>
+
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <!-- FullCalendar CSS & JS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
+</head>
+
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-4">To-Do List with Calendar</h1>
+
+        <div class="flex justify-center mb-4">
+            <input type="text" id="todo-input" placeholder="Add a new task"
+                class="border rounded-lg p-2 mr-2 w-full max-w-md">
+            <input type="date" id="todo-date" class="border rounded-lg p-2 mr-2 max-w-md">
+            <button onclick="addTodo()" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Add
+                Task</button>
+        </div>
+
+        <div id="todo-list" class="bg-white shadow rounded-lg p-4 mb-4 max-w-md mx-auto"></div>
+
+        <h2 class="text-2xl font-bold text-center mb-4">Calendar View</h2>
+        <div id="calendar" class="bg-white shadow rounded-lg p-4"></div>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAfARaHi_h0-sG6UYH6k7LQbIPLyIhYuZc",
+            authDomain: "to-do-list-4b7e7.firebaseapp.com",
+            projectId: "to-do-list-4b7e7",
+            storageBucket: "to-do-list-4b7e7.firebasestorage.app",
+            messagingSenderId: "417103883022",
+            appId: "1:417103883022:web:2e8a1e06f8169738a2055f"
+        };
+
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Variável global para o calendário
+        let calendar;
+
+        // Inicializa o calendário do FullCalendar
+        document.addEventListener('DOMContentLoaded', function () {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                events: [],
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                }
+            });
+            calendar.render();
+
+            // Carregar tarefas e eventos ao iniciar
+            fetchTodos();
+        });
+
+        // Função para listar as tarefas
+        async function fetchTodos() {
+            const todoListDiv = document.getElementById("todo-list");
+            todoListDiv.innerHTML = "";
+            const querySnapshot = await db.collection("todos").get();
+
+            querySnapshot.forEach((doc) => {
+                const todoData = doc.data();
+                const todoItem = document.createElement("div");
+                todoItem.classList.add("todo-item", "flex", "justify-between", "p-2", "border-b");
+                todoItem.textContent = `${todoData.task} (Due: ${new Date(todoData.date).toLocaleDateString()})`;
+
+                const deleteButton = document.createElement("button");
+                deleteButton.textContent = "Delete";
+                deleteButton.classList.add("text-red-500", "hover:text-red-700");
+                deleteButton.onclick = () => deleteTodo(doc.id);
+
+                todoItem.appendChild(deleteButton);
+                todoListDiv.appendChild(todoItem);
+
+                // Adiciona o evento ao calendário
+                calendar.addEvent({
+                    id: doc.id,
+                    title: todoData.task,
+                    start: todoData.date ? new Date(todoData.date) : new Date(),
+                    allDay: true
+                });
+            });
+        }
+
+        // Função para adicionar uma nova tarefa
+        async function addTodo() {
+            const todoInput = document.getElementById("todo-input");
+            const todoDate = document.getElementById("todo-date").value;
+            const task = todoInput.value.trim();
+            if (task && todoDate) {
+                const newTodoRef = await db.collection("todos").add({
+                    task: task,
+                    date: new Date(todoDate).toISOString() // Usa a data selecionada
+                });
+                todoInput.value = "";
+                document.getElementById("todo-date").value = ""; // Limpa o campo de data
+
+                // Atualiza a lista de tarefas e o calendário
+                fetchTodos();
+            } else {
+                alert("Please enter a task and select a due date.");
+            }
+        }
+
+        // Função para deletar uma tarefa
+        async function deleteTodo(id) {
+            await db.collection("todos").doc(id).delete();
+
+            // Remove o evento do calendário
+            const event = calendar.getEventById(id);
+            if (event) event.remove();
+
+            fetchTodos();
+        }
+    </script>
+</body>
+
+</html>
